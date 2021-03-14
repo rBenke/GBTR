@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class Document:
     """Class for storing data about single text document.

@@ -1,20 +1,11 @@
-from abc import ABC, abstractmethod
-from typing import Dict, List
+from typing import List, Dict
+
+from interface import Interface, implements
 
 from ..model.document import Document
 
 
-class DictReaderInterface(ABC):
-
-    @abstractmethod
-    def read_data(
-        self,
-        data: List[Dict[str, str]]
-    ) -> List[Document]:
-        pass
-
-
-class DictReader(DictReaderInterface):
+class DictReaderInterface(Interface):
     """Reader for dictionary like data source."""
 
     def read_data(
@@ -33,5 +24,14 @@ class DictReader(DictReaderInterface):
         List[Document]
             List collection of Document instances.
         """
+        pass
 
-    raise NotImplementedError
+
+class DictReader(implements(DictReaderInterface)):
+
+    def read_data(
+        self,
+        data: List[Dict[str, str]]
+    ) -> List[Document]:
+
+        raise NotImplementedError
