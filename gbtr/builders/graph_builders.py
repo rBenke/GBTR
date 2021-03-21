@@ -96,7 +96,6 @@ class TextGCNGraphBuilder(implements(GraphBuilderInterface)):
 
     def _word_word_matrix(self, words_order):
         from nltk.util import ngrams
-        import pandas as pd
 
         unigram_prob = np.unique(self.documents, return_counts=True)
 
