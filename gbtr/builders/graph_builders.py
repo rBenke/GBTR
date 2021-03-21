@@ -29,7 +29,19 @@ class GraphBuilderInterface(Interface):
         pass
 
 class TextGCNGraphBuilder(implements(GraphBuilderInterface)):
+    """
+    TextGCN is a method introduced by Liang Yao, Chengsheng Mao, Yuan Luo in
+    "Graph Convolutional Networks for Text Classification". The whole corpuse is mapped
+    to a single heterogenoues graph with two types of nodes: document nodes and word nodes.
 
+    How does the adjacency matrix looks like?
+    Two words, let's say word1 and word2, are connected with each with the weight max( PMI(word1,word2), 0 ).
+    Documents with words are connected based on the TF-IDF.
+    Document is never connected with another document directly.
+
+    How does the feature matrix looks like?
+    Feature matrix is an identity matrix with the size of all nodes.
+    """
     def build_graph(
         self,
         documents: List[Document]
@@ -41,24 +53,22 @@ class TextGCNGraphBuilder(implements(GraphBuilderInterface)):
         labels_list = [(idx, document.label) for idx, document in enumerate(self.documents)]
         labels_dict = dict(labels_list)
 
-        TextGCNGraph = GraphMatrix(
+        TextGCN_gm = GraphMatrix(
             adjacency_matrix=adjacency_matrix,
             nodes_features_matrix=feature_matrix,
             labels=labels_dict)
 
-        return list(TextGCNGraph)
+        return [TextGCN_gm]
 
 
     def _build_adjacency_matrix(self) -> np.array:
-        import nltk
-        from nltk import word_tokenize
-        from nltk.util import ngrams
-        X_tokenized = [word_tokenize(text.lower()) for text in X]
 
-        word_word_adj = self._word_word_matrix(tokenized_corpus, words_order)
-        doc_word_adj = self._doc_word_matrix(tokenized_corpus, words_order)
+        words_order = np.unique(self.documents)
+
+        word_word_adj = self._word_word_matrix(words_order)
+        doc_word_adj = self._doc_word_matrix(words_order)
         word_doc_adj = doc_word_adj.T
-        doc_doc_adj = self._doc_doc_matrix(tokenized_corpus, words_order)
+        doc_doc_adj = self._doc_doc_matrix(words_order)
 
         #              word_word_adj | word_doc_adj
         #  Adj_mat =   -----------------------------
@@ -67,16 +77,16 @@ class TextGCNGraphBuilder(implements(GraphBuilderInterface)):
         col1 = np.row_stack((word_word_adj, doc_word_adj))
         col2 = np.row_stack((word_doc_adj, doc_doc_adj))
         graph_adj = np.column_stack((col1, col2))
-        graph_adj_df = pd.DataFrame(graph_adj, columns=useful_tokens + list(range(Y.shape[0])),
-                                    index=useful_tokens + list(range(Y.shape[0])))
-        return graph_adj_df.to_numpy()
+
+        return graph_adj
 
     def _build_feature_matrix(self) -> np.array:
         raise NotImplementedError
 
-    def _doc_doc_matrix(tokenized_texts, words_order):
+    def _doc_doc_matrix(self,words_order):
         raise NotImplementedError
-    def _doc_word_matrix(tokenized_texts, words_order):
+
+    def _doc_word_matrix(self,words_order):
         from sklearn.feature_extraction.text import TfidfVectorizer
 
         tfidf = TfidfVectorizer(vocabulary=words_order)
@@ -84,13 +94,16 @@ class TextGCNGraphBuilder(implements(GraphBuilderInterface)):
         doc_word_adj = tfidf.fit_transform(filtered_text)
         return doc_word_adj
 
-    def _word_word_matrix(tokenized_texts, words_order):
-        unigram_freq = pd.value_counts(list(itertools.chain.from_iterable(tokenized_texts)))
+    def _word_word_matrix(self, words_order):
+        from nltk.util import ngrams
+        import pandas as pd
 
-        unigram_prob = unigram_freq / float(sum(unigram_freq))
+        unigram_prob = np.unique(self.documents, return_counts=True)
+
+
         unigram_prob_matrix = np.matmul(np.expand_dims(unigram_prob, 1), np.expand_dims(unigram_prob, 1).T)
 
-        bigrams = [list(ngrams(text, 2)) for text in tokenized_texts]
+        bigrams = [list(ngrams(text, 2)) for text in self.documents]
         bigrams = list(itertools.chain.from_iterable(bigrams))
 
         bigram_freq = pd.value_counts(bigrams)
