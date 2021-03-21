@@ -6,7 +6,7 @@ from interface import Interface, implements
 from .builders.graph_builders import GraphBuilderInterface, TextGCNGraphBuilder
 from .model.document import Document
 from .model.graph_matrix import GraphMatrix
-from .nlp.pieplines import ProcessingPipeline, ProcessingPipelineInterface
+from .nlp.pipelines import ProcessingPipeline, ProcessingPipelineInterface
 from .nlp.processors import Lemmatizer
 from .presenters.graph_presenter import GraphPresenter
 from .readers.reading_controller import ReadingController

@@ -17,7 +17,12 @@ class DictReaderInterface(Interface):
         Parameters
         ----------
         source: data
-            List of documents as dictiionaries {"text" : str, "label" : str}.
+            List of documents as dictionaries
+            [
+                {"text" : str, "label" : str},
+                {"text" : str, "label" : str},
+                ...
+            ].
 
         Returns
         -------
@@ -34,4 +39,18 @@ class DictReader(implements(DictReaderInterface)):
         data: List[Dict[str, str]]
     ) -> List[Document]:
 
-        raise NotImplementedError
+        try:
+            documents = list(map(
+                lambda d: Document(
+                    text=str(d['text']),
+                    label=str(d['label'])
+                ),
+                data
+            ))
+        # TODO create and manage custom exceptions
+        except KeyError:
+            raise Exception
+        except TypeError:
+            raise Exception
+
+        return documents

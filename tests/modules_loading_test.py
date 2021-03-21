@@ -1,3 +1,3 @@
 import gbtr
 
-gbtr_obj = gbtr.Gbtr()
+gbtr_obj = gbtr.TextGCN()

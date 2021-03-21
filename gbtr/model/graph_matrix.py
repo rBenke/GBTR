@@ -27,4 +27,4 @@ class GraphMatrix:
     nodes_features_matrix: np.array = None
     edges_features_matrix: np.array = None
     label: str = None
-    labels: Dict[int: str]
+    labels: Dict[int, str] = None

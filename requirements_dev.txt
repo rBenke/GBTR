@@ -12,5 +12,5 @@ pytest==4.6.5
 pytest-runner==5.1
 
 numpy==1.20.1
-Interface==2.11.1
+python-interface-1.6.0
 networkx==2.5

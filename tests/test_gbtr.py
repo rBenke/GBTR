@@ -5,7 +5,7 @@
 import pytest
 
 
-from gbtr import gbtr
+# from gbtr import gbtr
 
 
 @pytest.fixture
