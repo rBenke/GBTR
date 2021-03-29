@@ -2,7 +2,8 @@ from typing import List
 
 from interface import Interface, implements
 import numpy as np
-
+from nltk.util import ngrams
+from corpus_features import TF_IDF
 from ..model.document import Document
 from ..model.graph_matrix import GraphMatrix
 
@@ -10,23 +11,24 @@ from ..model.graph_matrix import GraphMatrix
 class GraphBuilderInterface(Interface):
 
     def build_graph(
-        self,
-        documents: List[Document]
+            self,
+            documents: List[Document]
     ) -> List[GraphMatrix]:
         """Build a graph from list of documents"""
         pass
 
     def _build_adjacency_matrix(
-        self
+            self
     ) -> np.array:
         """Build adjacency matrix"""
         pass
 
     def _build_feature_matrix(
-        self
+            self
     ) -> np.array:
         """Build feature matrix"""
         pass
+
 
 class TextGCNGraphBuilder(implements(GraphBuilderInterface)):
     """
@@ -42,9 +44,10 @@ class TextGCNGraphBuilder(implements(GraphBuilderInterface)):
     How does the feature matrix looks like?
     Feature matrix is an identity matrix with the size of all nodes.
     """
+
     def build_graph(
-        self,
-        documents: List[Document]
+            self,
+            documents: List[Document]
     ) -> List[GraphMatrix]:
 
         adjacency_matrix = self._build_adjacency_matrix()
@@ -60,15 +63,14 @@ class TextGCNGraphBuilder(implements(GraphBuilderInterface)):
 
         return [TextGCN_gm]
 
-
     def _build_adjacency_matrix(self) -> np.array:
 
-        words_order = np.unique(self.documents)
+        words_order = np.unique(self.documents, return_counts=True)
 
-        word_word_adj = self._word_word_matrix(words_order)
+        word_word_adj = self._word_word_matrix(words_order[0])
         doc_word_adj = self._doc_word_matrix(words_order)
         word_doc_adj = doc_word_adj.T
-        doc_doc_adj = self._doc_doc_matrix(words_order)
+        doc_doc_adj = self._doc_doc_matrix(words_order[0])
 
         #              word_word_adj | word_doc_adj
         #  Adj_mat =   -----------------------------
@@ -80,59 +82,46 @@ class TextGCNGraphBuilder(implements(GraphBuilderInterface)):
 
         return graph_adj
 
-    def _build_feature_matrix(self) -> np.array:
-        raise NotImplementedError
 
-    def _doc_doc_matrix(self,words_order):
-        raise NotImplementedError
+    def _doc_doc_matrix(self, words_order):
+        matrix_size = (len(self.documents), len(self.documents))
+        return np.zeros((matrix_size))
 
-    def _doc_word_matrix(self,words_order):
-        from sklearn.feature_extraction.text import TfidfVectorizer
-
-        tfidf = TfidfVectorizer(vocabulary=words_order)
-        filtered_text = [" ".join(text) for text in tokenized_texts]
-        doc_word_adj = tfidf.fit_transform(filtered_text)
+    def _doc_word_matrix(self, words_order):
+        doc_word_adj = TF_IDF(self.documents, words_order)
         return doc_word_adj
 
     def _word_word_matrix(self, words_order):
-        from nltk.util import ngrams
 
-        unigram_prob = np.unique(self.documents, return_counts=True)
+        unigrams_freq = words_order[1]/np.sum(words_order[1])
 
+        unigram_prob_matrix = np.matmul(np.expand_dims(unigrams_freq, 1), np.expand_dims(unigrams_freq, 1).T)
 
-        unigram_prob_matrix = np.matmul(np.expand_dims(unigram_prob, 1), np.expand_dims(unigram_prob, 1).T)
-
-        bigrams = [list(ngrams(text, 2)) for text in self.documents]
-        bigrams = list(itertools.chain.from_iterable(bigrams))
-
-        bigram_freq = pd.value_counts(bigrams)
-
-        bigram_freq_set = {}
-        for a, b in zip(bigram_freq.index, bigram_freq):
-            bigram_freq_set[a] = int(b)
+        bigrams = [ngrams(text, 2) for text in self.documents]
+        bigram_uniq = np.unique(bigrams, return_counts=True)
 
         bigram_matrix = np.zeros((len(words_order), len(words_order)))
+        unigrams_position_lookup = dict(zip(words_order[0], len(words_order[0])))
 
-        for i in range(len(words_order)):
-            word1 = words_order[i]
-            for j in range(i + 1, len(words_order)):
-                word2 = words_order[j]
-                try:
-                    bi_coo1 = bigram_freq_set[(word1, word2)]
-                except:
-                    bi_coo1 = 0
-                try:
-                    bi_coo2 = bigram_freq_set[(word2, word1)] + bi_coo1
-                except:
-                    bi_coo2 = 0 + bi_coo1
+        for i in range(len(bigram_uniq[0])):
+            word1 = bigram_uniq[0][i][0]
+            word1pos = unigrams_position_lookup[word1]
+            word2 = bigram_uniq[0][i][1]
+            word2pos = unigrams_position_lookup[word2]
+            count = bigram_uniq[1][i]
+            bigram_matrix[word1pos, word2pos] = bigram_matrix[word1pos, word2pos] + count
+            bigram_matrix[word2pos, word1pos] = bigram_matrix[word2pos, word1pos] + count
 
-                bigram_matrix[i, j] = bi_coo2
-                bigram_matrix[j, i] = bi_coo2
+        bigram_prob_matrix = bigram_matrix / float(sum(bigram_uniq[0]))
 
-        bigram__prob_matrix = bigram_matrix / float(sum(bigram_freq))
-
-        adj_matrix = np.log(bigram__prob_matrix / unigram_prob_matrix)
+        # PMI
+        adj_matrix = np.log(bigram_prob_matrix / unigram_prob_matrix)
         adj_matrix[adj_matrix < 0] = 0
-        return (adj_matrix)
 
+        np.fill_diagonal(adj_matrix,0)
 
+        return adj_matrix
+
+    def _build_feature_matrix(self, words_order) -> np.array:
+        matrix_shape = (len(words_order) + len(self.documents), len(words_order) + len(self.documents))
+        return np.ones(matrix_shape)

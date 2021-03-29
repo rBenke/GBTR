@@ -2,6 +2,7 @@ from typing import List
 
 from interface import Interface, implements
 import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from ..model.document import Document
 
@@ -20,6 +21,9 @@ class TF_IDF(implements(CorpusFeatureInterface)):
 
     def get_feature(
         self,
-        documents: List[Document]
+        documents: List[Document], words_order
     ) -> np.array:
-        raise NotImplementedError
+
+        tfidf = TfidfVectorizer(vocabulary=words_order)
+        filtered_text = [" ".join(text) for text in documents]
+        tfidf.fit_transform(filtered_text)
